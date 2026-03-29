@@ -55,4 +55,12 @@ export default defineConfig({
   optimizeDeps: {
     include: ["@shopify/app-bridge-react"],
   },
+  ssr: {
+    external: [
+      '@shopify/shopify-app-remix',
+      'firebase-admin',
+      'firebase-admin/app',
+      'firebase-admin/firestore',
+    ],
+  },
 });
