@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { json } from "react-router";
 import { useFetcher, useLoaderData } from "react-router";
 import {
   Scissors,
@@ -19,7 +18,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   const doc = await db.collection("splitConfig").doc(shop).get();
   const configs = doc.exists ? doc.data().items || [] : [];
-  return json({ shop, configs });
+  return new Response(JSON.stringify({ shop, configs }), { headers: { "Content-Type": "application/json" } });
 };
 
 export const action = async ({ request }) => {
@@ -31,7 +30,7 @@ export const action = async ({ request }) => {
   if (intent === "save") {
     const configs = JSON.parse(formData.get("configs"));
     await db.collection("splitConfig").doc(shop).set({ items: configs });
-    return json({ success: true });
+    return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
   }
 
   if (intent === "delete") {
@@ -40,10 +39,10 @@ export const action = async ({ request }) => {
     const items = doc.exists ? doc.data().items || [] : [];
     const updated = items.filter((i) => i.productId !== productId);
     await db.collection("splitConfig").doc(shop).set({ items: updated });
-    return json({ success: true });
+    return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
   }
 
-  return json({ success: false });
+  return new Response(JSON.stringify({ success: false }), { headers: { "Content-Type": "application/json" } });
 };
 
 const SPLIT_OPTIONS = [
