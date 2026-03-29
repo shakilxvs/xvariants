@@ -14,10 +14,16 @@ export const db = getFirestore();
 
 export class FirebaseSessionStorage {
   async storeSession(session) {
-    const data = session.toPropertyArray().reduce((acc, [k, v]) => {
-      acc[k] = v;
-      return acc;
-    }, {});
+    const data = {
+      id: session.id,
+      shop: session.shop,
+      state: session.state,
+      isOnline: session.isOnline || false,
+      accessToken: session.accessToken || "",
+      expires: session.expires || null,
+      onlineAccessInfo: session.onlineAccessInfo || null,
+      scope: session.scope || "",
+    };
     await db.collection("sessions").doc(session.id).set(data);
     return true;
   }
