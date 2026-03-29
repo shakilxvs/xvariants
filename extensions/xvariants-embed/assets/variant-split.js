@@ -1,113 +1,93 @@
 (function () {
-  if (!window.location.pathname.includes("/collections/")) return;
 
-  const SHOP = window.Shopify && window.Shopify.shop;
-  const API = "https://xvariants.onrender.com/api/split-config";
+  var SHOP = window.Shopify && window.Shopify.shop;
+  var API = "https://xvariants.onrender.com/api/split-config";
 
-  if (!SHOP) return;
 
-  async function getConfig() {
-    try {
-      const res = await fetch(API + "?shop=" + SHOP);
-      const data = await res.json();
-      return data.items || [];
-    } catch (e) {
-      return [];
-    }
+  function getConfig() {
+    return fetch(API + "?shop=" + SHOP)
+      .then(function(res) { return res.json(); })
+      .then(function(data) { return data.items || []; })
+      .catch(function() { return []; });
   }
 
-  async function getProductData(handle) {
-    try {
-      const res = await fetch("/products/" + handle + ".js");
-      return await res.json();
-    } catch (e) {
-      return null;
-    }
+  function getProductData(handle) {
+    return fetch("/products/" + handle + ".js")
+      .then(function(res) { return res.json(); })
+      .catch(function() { return null; });
   }
 
   function findCardByHandle(handle) {
-    const links = document.querySelectorAll("a[href*='/products/" + handle + "']");
-    for (const link of links) {
-      const card = link.closest("[class*='card'], [class*='product'], li, article");
+    var links = document.querySelectorAll("a[href*='/products/" + handle + "']");
+    for (var i = 0; i < links.length; i++) {
+      var card = links[i].closest("[class*='card'], [class*='product'], li, article");
       if (card) return card;
     }
     return null;
   }
 
   function splitCard(originalCard, product, splitBy) {
-    const variants = product.variants;
-    const handle = product.handle;
+    var variants = product.variants;
+    var handle = product.handle;
+    var optionIndex = 0;
 
-    let optionIndex = 0;
     if (splitBy === "size") {
-      const idx = product.options.findIndex(function(o) {
-        return o.toLowerCase().includes("size");
-      });
-      optionIndex = idx >= 0 ? idx : 0;
+      for (var i = 0; i < product.options.length; i++) {
+        if (product.options[i].toLowerCase().indexOf("size") >= 0) { optionIndex = i; break; }
+      }
     } else if (splitBy === "color") {
-      const idx = product.options.findIndex(function(o) {
-        return o.toLowerCase() === "color" || o.toLowerCase() === "colour";
-      });
-      optionIndex = idx >= 0 ? idx : 0;
+      for (var i = 0; i < product.options.length; i++) {
+        var o = product.options[i].toLowerCase();
+        if (o === "color" || o === "colour") { optionIndex = i; break; }
+      }
     }
 
-    const seen = new Set();
-    const splitGroups = [];
-
-    for (const variant of variants) {
-      const val = splitBy === "all" ? variant.title : variant.options[optionIndex];
-      if (!seen.has(val)) {
-        seen.add(val);
+    var seen = {};
+    var splitGroups = [];
+    for (var i = 0; i < variants.length; i++) {
+      var variant = variants[i];
+      var val = splitBy === "all" ? variant.title : variant.options[optionIndex];
+        seen[val] = true;
         splitGroups.push({ val: val, variant: variant });
       }
     }
 
     if (splitGroups.length <= 1) return;
 
-    const parent = originalCard.parentNode;
+    var parent = originalCard.parentNode;
+    for (var i = 0; i < splitGroups.length; i++) {
+      var group = splitGroups[i];
+      var clone = originalCard.cloneNode(true);
 
-    splitGroups.forEach(function(group) {
-      const clone = originalCard.cloneNode(true);
+      var titleEl = clone.querySelector("[class*='title'], [class*='name'], h2, h3, h4");
+      if (titleEl) titleEl.textContent = product.title + " — " + group.val;
 
-      const titleEl = clone.querySelector("[class*='title'], [class*='name'], h2, h3, h4");
-      if (titleEl) {
-        titleEl.textContent = product.title + " \u2014 " + group.val;
+      var links = clone.querySelectorAll("a[href*='/products/']");
+      for (var j = 0; j < links.length; j++) {
+        links[j].href = "/products/" + handle + "?variant=" + group.variant.id;
       }
 
-      clone.querySelectorAll("a[href*='/products/']").forEach(function(a) {
-        a.href = "/products/" + handle + "?variant=" + group.variant.id;
-      });
-
       if (group.variant.featured_image && group.variant.featured_image.src) {
-        const img = clone.querySelector("img");
-        if (img) {
-          img.src = group.variant.featured_image.src;
-          img.srcset = "";
-        }
+        var img = clone.querySelector("img");
+        if (img) { img.src = group.variant.featured_image.src; img.srcset = ""; }
       }
 
       parent.insertBefore(clone, originalCard);
-    });
+    }
 
     originalCard.style.display = "none";
   }
 
-  async function run() {
-    const configs = await getConfig();
-    if (!configs.length) return;
-
-    for (const config of configs) {
-      const handle = config.productHandle;
-      if (!handle) continue;
-
-      const card = findCardByHandle(handle);
-      if (!card) continue;
-
-      const product = await getProductData(handle);
-      if (!product) continue;
-
-      splitCard(card, product, config.splitBy);
-    }
+  function run() {
+    getConfig().then(function(configs) {
+      var promises = configs.map(function(config) {
+        var card = findCardByHandle(config.productHandle);
+        return getProductData(config.productHandle).then(function(product) {
+          if (product) splitCard(card, product, config.splitBy);
+        });
+      });
+      return Promise.all(promises);
+    });
   }
 
   if (document.readyState === "loading") {
