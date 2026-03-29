@@ -57,7 +57,7 @@ export default defineConfig({
   },
   ssr: {
     external: [
-      '@shopify/shopify-app-remix',
+      '@shopify/shopify-app-react-router',
       'firebase-admin',
       'firebase-admin/app',
       'firebase-admin/firestore',
